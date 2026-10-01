@@ -1,0 +1,26 @@
+# Core ML
+torch>=2.2
+transformers>=4.44
+pillow>=10.0
+numpy>=1.26
+
+# Vector DB
+chromadb>=0.5
+
+# Generation (Ollama Cloud or local Ollama)
+ollama>=0.3
+
+# Data prep
+datasets>=2.20
+requests>=2.31
+tqdm>=4.66
+
+# App / Web / Config
+python-dotenv>=1.0
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+gradio>=4.40
+
+# Dev / eval
+pytest>=8.0
