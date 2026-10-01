@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multimodal RAG &bull; CLIP + ChromaDB + Ollama</title>
+  <meta name="description" content="State of the art Multimodal Retrieval-Augmented Generation system using unified CLIP embeddings, Chroma vector store, and Ollama Vision-Language Models." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="logo-badge">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-title">Multimodal <span>RAG</span></h1>
+          <p class="logo-subtitle">CLIP Shared Embeddings &bull; ChromaDB &bull; Ollama VLM</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="status-pill" id="dbStatusPill">
+          <span class="status-dot"></span>
+          <span id="dbStatusText">Checking Vector Store...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Left Column: Input Query Studio -->
+    <section class="studio-panel">
+      <div class="card-glass">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="step-num">1</span>
+            <h2>Query Composition</h2>
+          </div>
+          <span class="badge-mode" id="activeQueryMode">Multimodal</span>
+        </div>
+
+        <!-- Image Upload Area -->
+        <div class="form-group">
+          <label class="form-label">Query Image (Optional for text-only search)</label>
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="imageInput" accept="image/*" class="file-input-hidden" />
+            <div class="drop-content" id="dropPrompt">
+              <div class="upload-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </div>
+              <p class="drop-text">Drag & drop photo or <span class="browse-link">browse files</span></p>
+              <p class="drop-hint">Supports JPEG, PNG, WebP</p>
+            </div>
+            <div class="preview-wrapper hidden" id="previewWrapper">
+              <img id="imagePreview" alt="Query Preview" />
+              <button type="button" class="btn-remove-img" id="btnRemoveImage" title="Remove image">&times;</button>
+            </div>
+          </div>
+          <div class="sample-images-bar" id="sampleImagesBar">
+            <span class="sample-title">Quick Test Samples:</span>
+            <div class="sample-thumbnails" id="sampleThumbnails"></div>
+          </div>
+        </div>
+
+        <!-- Text Query Input -->
+        <div class="form-group">
+          <label class="form-label" for="textQuery">Text Question / Prompt</label>
+          <textarea id="textQuery" rows="3" class="input-textarea" placeholder="e.g. What breed is this pet, what are its temperament and grooming requirements?"></textarea>
+          <div class="query-chips">
+            <button type="button" class="chip-btn" data-query="Identify the pet breed and detail its daily grooming requirements.">Grooming & Care</button>
+            <button type="button" class="chip-btn" data-query="What is the historical origin and personality traits of this breed?">Origin & Traits</button>
+            <button type="button" class="chip-btn" data-query="Describe physical breed characteristics, lifespan, and common health concerns.">Health & Lifespan</button>
+          </div>
+        </div>
+
+        <!-- Retrieval & Fusion Settings (Collapsible) -->
+        <div class="settings-accordion">
+          <button type="button" class="accordion-toggle" id="settingsToggle">
+            <span class="toggle-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              Retrieval & Fusion Settings
+            </span>
+            <span class="chevron" id="settingsChevron">&#9662;</span>
+          </button>
+
+          <div class="settings-body" id="settingsBody">
+            <div class="grid-2col">
+              <div class="form-group">
+                <label class="form-label" for="fusionMode">Fusion Algorithm</label>
+                <select id="fusionMode" class="input-select">
+                  <option value="mean" selected>Weighted Mean Embedding (Normalized)</option>
+                  <option value="rrf">Reciprocal Rank Fusion (RRF)</option>
+                </select>
+              </div>
+
+              <div class="form-group" id="alphaGroup">
+                <div class="label-with-value">
+                  <label class="form-label" for="alphaSlider">Fusion Balance (&alpha;)</label>
+                  <span class="val-badge" id="alphaValue">0.70</span>
+                </div>
+                <input type="range" id="alphaSlider" min="0" max="1" step="0.05" value="0.7" class="input-range" />
+                <div class="range-labels">
+                  <span>100% Text</span>
+                  <span>Balanced</span>
+                  <span>100% Image</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2col">
+              <div class="form-group">
+                <label class="form-label" for="topKImages">Top-K Images</label>
+                <input type="number" id="topKImages" min="1" max="12" value="4" class="input-number" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="topKTexts">Top-K Text Passages</label>
+                <input type="number" id="topKTexts" min="1" max="12" value="4" class="input-number" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="button" class="btn-primary" id="btnSubmit">
+          <span class="btn-spinner hidden" id="submitSpinner"></span>
+          <span id="btnSubmitText">Retrieve & Synthesize Answer</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Right Column: Results & Knowledge Explorer -->
+    <section class="results-panel">
+      <!-- Generated Answer Card -->
+      <div class="card-glass answer-card" id="answerCard">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="step-num highlight">2</span>
+            <h2>Vision LLM Synthesis</h2>
+          </div>
+          <div class="latency-stats" id="latencyStats">
+            <span id="totalLatencyBadge" class="badge-perf hidden">0.00s</span>
+          </div>
+        </div>
+
+        <div class="answer-content-area" id="answerArea">
+          <div class="placeholder-state" id="emptyAnswerPlaceholder">
+            <div class="placeholder-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <h3>Ready for Multimodal Query</h3>
+            <p>Upload a pet photo, enter your question, and execute search to retrieve cross-modal knowledge and generate cited answers.</p>
+          </div>
+          <div class="answer-text hidden" id="answerText"></div>
+        </div>
+      </div>
+
+      <!-- Retrieved Context Tabs -->
+      <div class="card-glass context-card">
+        <div class="tabs-header">
+          <button type="button" class="tab-btn active" data-tab="imagesTab">
+            Retrieved Images <span class="tab-count" id="imageCountBadge">0</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="textsTab">
+            Retrieved Wikipedia Chunks <span class="tab-count" id="textCountBadge">0</span>
+          </button>
+        </div>
+
+        <!-- Images Gallery Tab -->
+        <div class="tab-pane active" id="imagesTab">
+          <div class="gallery-grid" id="imageGallery">
+            <div class="empty-tab-hint">Retrieved images will appear here with cosine similarity scores.</div>
+          </div>
+        </div>
+
+        <!-- Text Chunks Tab -->
+        <div class="tab-pane" id="textsTab">
+          <div class="chunks-list" id="chunksList">
+            <div class="empty-tab-hint">Retrieved Wikipedia text chunks will appear here with source annotations.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Lightbox Modal -->
+  <div class="modal-overlay hidden" id="lightboxModal">
+    <div class="modal-content">
+      <button class="modal-close" id="btnCloseModal">&times;</button>
+      <img id="modalImage" alt="Enlarged view" />
+      <div class="modal-caption" id="modalCaption"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
